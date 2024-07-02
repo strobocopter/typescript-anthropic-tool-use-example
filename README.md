@@ -11,15 +11,15 @@ The single configured tool is using the [weatherapi.com](weatherapi.com) API to 
 
 ## Installation
     
-    ```bash
-    yarn install
-    cp .env.example .env
-    ```
+```bash
+yarn install
+cp .env.example .env
+```
 
 Then add your API keys to the `.env` file.
 
 ## Usage
 
-    ```bash
-    yarn start
-    ```
+```bash
+yarn start
+```
