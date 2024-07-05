@@ -49,6 +49,27 @@ async function callClaude(prompt: string | MessageParam[]) {
     });
 }
 
+async function callTool(toolBlock: ToolUseBlock) {
+  const { name, id, input } = toolBlock;
+
+  const tool = tools.find((tool) => tool.name === name);
+  if (tool) {
+    const toolOutput = await functions[name](input);
+    return {
+      role: "user",
+      content: [
+        {
+          type: "tool_result",
+          tool_use_id: id,
+          content: toolOutput,
+        },
+      ],
+    } as MessageParam;
+  } else {
+    throw Error(`Tool ${name} does not exist`);
+  }
+}
+
 async function processResponse(response: Anthropic.Messages.Message) {
   const toolUseBlocks = response.content.filter<ToolUseBlock>(
     (content) => content.type === "tool_use",
@@ -81,23 +102,3 @@ async function main() {
 
 main();
 
-async function callTool(toolBlock: ToolUseBlock) {
-  const { name, id, input } = toolBlock;
-
-  const tool = tools.find((tool) => tool.name === name);
-  if (tool) {
-    const toolOutput = await functions[name](input);
-    return {
-      role: "user",
-      content: [
-        {
-          type: "tool_result",
-          tool_use_id: id,
-          content: toolOutput,
-        },
-      ],
-    } as MessageParam;
-  } else {
-    throw Error(`Tool ${name} does not exist`);
-  }
-}
