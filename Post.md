@@ -7,6 +7,10 @@ months old now, but most examples out there are using the Python version of the 
 
 For the impatient - go to my [github repo here](https://github.com/codewithpassion/typescript-anthropic-tool-use-example).
 
+## Want to walk through the code while I write it? 
+
+[Check out my video](https://youtu.be/dVuJPvopY18) about it!
+
 ## Installation
 
 First, you need to install the Anthropic API package:
