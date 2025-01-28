@@ -342,160 +342,77 @@ Claude will then send us a another answer with it's assessment on what the weath
 ]
 ```
 
+## Suno AI Integration
 
-## Putting it all together
+This project includes two different implementations for generating songs using AI:
 
-Here is the full code in TypeScript.
+### Classic Suno AI
 
-In the function implementation we're actually calling an API at `weatherapi.com` to get the real weather.
-
+Uses a local endpoint (`http://localhost:3000/api/custom_generate`) to generate songs. Tool definition:
 
 ```typescript
-import dotenv from "dotenv";
-import { input } from "@inquirer/prompts";
-import {
-  MessageParam,
-  ToolUseBlock,
-} from "@anthropic-ai/sdk/resources/messages.mjs";
-import Anthropic from "@anthropic-ai/sdk";
-dotenv.config();
-
-const messages: MessageParam[] = [];
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
-const tools: Anthropic.Tool[] = [
-  {
-    name: "get_weather",
-    description: "Get the weather for a given location",
-    input_schema: {
-      type: "object",
-      properties: {
-        location: {
-          type: "string",
-          description: "The location to get the weather for",
-        },
+{
+  name: "create_song_with_suno_ai_classic",
+  description: "Create a song using Suno AI classic",
+  parameters: {
+    type: "object",
+    properties: {
+      prompt: {
+        type: "string",
+        description: "Description or lyrics for the song"
       },
+      title: {
+        type: "string",
+        description: "Title for the song"
+      }
     },
-  },
-];
-
-const functions = {
-  get_weather: async (input: { location: string }) => {
-    try {
-      const response = await fetch(
-        `https://api.weatherapi.com/v1/current.json?q=${input.location}&lang=en-us&key=${process.env.WEATHER_API_KEY}`,
-      );
-      const data = await response.json();
-      console.log(
-        `-------- Weather API response was ${data.current?.condition?.text ?? "unknown"}`,
-      );
-      return `The weather in ${input.location} is ${data.current?.condition?.text ?? "unknown"}`;
-    } catch (err) {
-      console.error(`Error getting the weather:`, err);
-      return `Error getting the weather for ${input.location}`;
-    }
-  },
-};
-
-function exit() {
-  console.log("Ok, bye!");
-  process.exit(0);
-}
-
-async function query() {
-  const query = await input({ message: "What would you like to do?" });
-  if (["quit", "exit"].includes(query.toLowerCase())) {
-    exit();
-  }
-  return query;
-}
-
-async function callClaude(prompt: string | MessageParam[]) {
-  if (Array.isArray(prompt)) {
-    messages.push(...prompt);
-  } else {
-    messages.push({
-      role: "user",
-      content: prompt,
-    });
-  }
-
-  return client.messages
-    .create({
-      model: "claude-3-5-sonnet-20240620",
-      temperature: 0.5,
-      max_tokens: 1024,
-      messages: messages,
-      tools: tools,
-    })
-    .then((response) => {
-      messages.push({ role: "assistant", content: response.content });
-      return response;
-    });
-}
-
-async function callTool(toolBlock: ToolUseBlock) {
-  const { name, id, input } = toolBlock;
-
-  const tool = tools.find((tool) => tool.name === name);
-  if (tool) {
-    const toolOutput = await functions[name](input);
-    return {
-      role: "user",
-      content: [
-        {
-          type: "tool_result",
-          tool_use_id: id,
-          content: toolOutput,
-        },
-      ],
-    } as MessageParam;
-  } else {
-    throw Error(`Tool ${name} does not exist`);
+    required: ["prompt", "title"]
   }
 }
-
-async function processResponse(response: Anthropic.Messages.Message) {
-  const toolUseBlocks = response.content.filter<ToolUseBlock>(
-    (content) => content.type === "tool_use",
-  );
-
-  if (toolUseBlocks.length) {
-    const allToolResultPromises = toolUseBlocks.map(async (toolBlock) => {
-      return await callTool(toolBlock);
-    });
-    const allToolResults = await Promise.all(allToolResultPromises);
-
-    return await callClaude(allToolResults) //
-      .then(processResponse);
-  } else {
-    const textOutputs = response.content
-      .map((content) => (content.type === "text" ? content.text : null))
-      .filter(Boolean);
-    console.log(textOutputs.join("\n"));
-  }
-}
-
-async function main() {
-  while (true) {
-    const userPrompt = await query();
-    await callClaude(userPrompt) //
-      .then(processResponse);
-    console.log("");
-  }
-}
-
-main();
-
 ```
 
-## Conclusion
+### Suno AI with ACE Data
 
-This is a fairly simple example, with a single tool, no system prompts, and very little error handling - so take this as a starting point. 
+Uses a local endpoint (`http://localhost:3000/api/ace_generate`) to generate songs with ACE Data. Tool definition:
 
-But it shows you how you can extend Claud's functionality when calling it from your own code in TypeScript.
+```typescript
+{
+  name: "create_song_suno_ai_ace",
+  description: "Create a song using Suno AI with ACE Data",
+  parameters: {
+    type: "object",
+    properties: {
+      musicText: {
+        type: "string",
+        description: "The lyrics or description for the song"
+      },
+      musicStyle: {
+        type: "string",
+        description: "The style of music to generate"
+      }
+    },
+    required: ["musicText", "musicStyle"]
+  }
+}
+```
 
+### Generated Song Output
 
-### Github
+The generated song output will be in the following format:
+
+```typescript
+[{
+  type: "text",
+  text: `Generated song "${title}":
+Lyrics:
+${lyrics}
+
+Style: ${style}
+Audio URL: ${audioUrl}
+Video URL: ${videoUrl}`
+}]
+```
+
+### Original code with weather example
 
 Find the project on my github: https://github.com/codewithpassion/typescript-anthropic-tool-use-example

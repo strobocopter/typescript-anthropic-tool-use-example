@@ -51,6 +51,8 @@ async function callClaude(prompt: string | MessageParam[]) {
 
 async function callTool(toolBlock: ToolUseBlock) {
   const { name, id, input } = toolBlock;
+  console.log('Available functions:', Object.keys(functions));
+  console.log('Trying to call function:', name);
 
   const tool = tools.find((tool) => tool.name === name);
   if (tool) {

@@ -64,6 +64,85 @@ const createSongWithSunoAI = async ({
   }
 };
 
+type AcedataCreateSongParams = {
+  lyric: string;
+  style: string;
+  title: string;
+  action?: 'generate';
+  model?: string;
+  custom?: boolean;
+  instrumental?: boolean;
+};
+
+type AcedataSongResponse = {
+  id: string;
+  title: string;
+  image_url: string;
+  lyric: string;
+  audio_url: string;
+  video_url: string;
+  created_at: string;
+  model: string;
+  state: string;
+  style: string;
+  duration: number;
+};
+
+type AcedataApiResponse = {
+  success: boolean;
+  task_id: string;
+  trace_id: string;
+  data: AcedataSongResponse[];
+};
+
+const createSongWithAcedata = async ({
+  lyric,
+  style,
+  title,
+  action = 'generate',
+  model = 'chirp-v3-0',
+  custom = true,
+  instrumental = false,
+}: AcedataCreateSongParams): Promise<AcedataApiResponse> => {
+  const url = 'https://api.acedata.cloud/suno/audios';
+  const token = `${process.env.ACEDATA_API_KEY}`;
+
+  const body = JSON.stringify({
+    action,
+    model,
+    lyric,
+    custom,
+    instrumental,
+    style,
+    title,
+  });
+
+  try {
+    const headers: Record<string, string> = {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    };
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(JSON.stringify(errorData));
+    }
+
+    const data: AcedataApiResponse = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error creating song:', error);
+    throw new Error('An error occurred while creating the song.');
+  }
+};
+
 const tools: Anthropic.Tool[] = [
   {
     name: "get_weather",
@@ -79,18 +158,18 @@ const tools: Anthropic.Tool[] = [
     },
   },
   {
-    name: "create_song_with_suno_ai",
-    description: "Creates a song using Suno AI based on the provided prompt and parameters.",
+    name: "create_song_with_suno_ai_classic",
+    description: "Creates a song using Suno AI classic API",
     input_schema: {
       type: "object",
       properties: {
         prompt: {
           type: "string",
-          description: "The text prompt for the song generation."
+          description: "The lyrics for the song, do not include instructions what the lyrics should be, just the lyrics themselves"
         },
         tags: {
           type: "string",
-          description: "Tags associated with the song."
+          description: "genre with the song."
         },
         title: {
           type: "string",
@@ -106,6 +185,25 @@ const tools: Anthropic.Tool[] = [
         }
       },
       required: ['prompt', 'title'],
+      additionalProperties: false
+    }
+  },
+  {
+    name: 'create_song_suno_ai_ace',
+    description: 'Create a song using Suno ACE API.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        musicText: {
+          type: 'string',
+          description: 'The lyrics for the song, do not include instructions what the lyrics should be, just the lyrics themselves'
+        },
+        musicStyle: {
+          type: 'string',
+          description: 'The style of the music (e.g., "rock", "pop", "jazz").'
+        }
+      },
+      required: ['musicText', 'musicStyle'],
       additionalProperties: false
     }
   }
@@ -127,15 +225,53 @@ const functions = {
       return `Error getting the weather for ${input.location}`;
     }
   },
-  create_song_with_suno_ai: async (input: CreateSongParams) => {
+  create_song_with_suno_ai_classic: async (input: CreateSongParams) => {
     try {
       const response = await createSongWithSunoAI(input);
       console.log('-------- Suno AI response:', response);
       
-      return response;
+      return response.map((song) => ({
+        type: "text",
+        text: `Generated song "${song.title}":
+Lyrics:
+${song.lyric}
+
+Audio URL: ${song.audio_url}
+Video URL: ${song.video_url}`
+      }));
+
     } catch (err) {
       console.error('Error creating song with Suno AI:', err);
-      return 'Error creating song with Suno AI';
+      return [{
+        type: "text",
+        text: 'Error creating song with Suno AI'
+      }];
+    }
+  },
+  create_song_suno_ai_ace: async (input: { musicText: string, musicStyle: string }) => {
+    try {
+      const response = await createSongWithAcedata({
+        lyric: input.musicText,
+        style: input.musicStyle,
+        title: `Generated Song`,
+      });
+      console.log('-------- ACE Data response:', response);
+      
+      if (response.success && response.data.length > 0) {
+        const song = response.data[0];
+        return `Generated song "${song.title}":
+Lyrics:
+${song.lyric}
+
+Style: ${song.style}
+Audio URL: ${song.audio_url}
+Video URL: ${song.video_url}`;
+      }
+      
+      return 'Failed to generate song';
+    } catch (err) {
+      console.error('Error creating song with ACE Data:', err);
+      return 'Error creating song with ACE Data';
     }
   }
 };
