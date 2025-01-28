@@ -40,7 +40,6 @@ const createSongWithSunoAI = async ({
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        // 'Authorization': `Bearer ${process.env.OpenAIToken}`, // Token will be provided by the user
       },
       body: JSON.stringify({
         prompt,
@@ -143,6 +142,75 @@ const createSongWithAcedata = async ({
   }
 };
 
+type ContentType = 'page';
+
+type ExpandOptions =
+  | 'childTypes.all'
+  | 'body'
+  | 'body.storage'
+  | 'childTypes.attachment'
+  | 'childTypes.comment'
+  | 'childTypes.page'
+  | 'container'
+  | 'metadata.currentuser'
+  | 'metadata.properties'
+  | 'metadata.labels'
+  | 'operations'
+  | 'children.page'
+  | 'children.attachment'
+  | 'children.comment'
+  | 'restrictions.read.restrictions.user'
+  | 'restrictions.read.restrictions.group'
+  | 'restrictions.update.restrictions.user'
+  | 'restrictions.update.restrictions.group'
+  | 'history'
+  | 'version'
+  | 'descendants.page'
+  | 'descendants.attachment'
+  | 'descendants.comment'
+  | 'space';
+
+type GetContentParams = {
+  type: ContentType;
+  title: string;
+  expand: ExpandOptions[];
+};
+
+const getConfluenceContent = async ({ type, title, expand }: GetContentParams) => {
+  // retrieve base url from environment variables
+  const baseUrl = `${process.env.CONFLUENCE_BASE_URL}/wiki/rest`;
+  const url = new URL(`${baseUrl}/api/content`);
+  
+  url.searchParams.append('type', type);
+  url.searchParams.append('title', title);
+  url.searchParams.append('expand', expand.join(','));
+
+  // Create basic auth token
+  const auth = Buffer.from(
+    `${process.env.CONFLUENCE_USERNAME}:${process.env.CONFLUENCE_API_KEY}`
+  ).toString('base64');
+
+  try {
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'Authorization': `Basic ${auth}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(response.statusText);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error fetching Confluence content:', error);
+    throw new Error('An error occurred while fetching Confluence content');
+  }
+};
+
 const tools: Anthropic.Tool[] = [
   {
     name: "get_weather",
@@ -204,6 +272,59 @@ const tools: Anthropic.Tool[] = [
         }
       },
       required: ['musicText', 'musicStyle'],
+      additionalProperties: false
+    }
+  },
+  {
+    name: "get_confluence_content",
+    description: "Retrieves content from Confluence",
+    input_schema: {
+      type: "object",
+      properties: {
+        type: {
+          type: "string",
+          enum: ["page"],
+          description: "The type of content to retrieve"
+        },
+        title: {
+          type: "string",
+          description: "The title of the content to retrieve"
+        },
+        expand: {
+          type: "array",
+          items: {
+            type: "string",
+            enum: [
+              "body",
+              "body.storage",
+              "childTypes.all",
+              "childTypes.attachment",
+              "childTypes.comment",
+              "childTypes.page",
+              "container",
+              "metadata.currentuser",
+              "metadata.properties",
+              "metadata.labels",
+              "operations",
+              "children.page",
+              "children.attachment",
+              "children.comment",
+              "restrictions.read.restrictions.user",
+              "restrictions.read.restrictions.group",
+              "restrictions.update.restrictions.user",
+              "restrictions.update.restrictions.group",
+              "history",
+              "version",
+              "descendants.page",
+              "descendants.attachment",
+              "descendants.comment",
+              "space"
+            ]
+          },
+          description: "Properties to expand in the response, body.storage is required to get the content"
+        }
+      },
+      required: ["type", "title"],
       additionalProperties: false
     }
   }
@@ -272,6 +393,35 @@ Video URL: ${song.video_url}`;
     } catch (err) {
       console.error('Error creating song with ACE Data:', err);
       return 'Error creating song with ACE Data';
+    }
+  },
+  get_confluence_content: async (input: GetContentParams) => {
+    try {
+      const response = await getConfluenceContent(input);
+      console.log('-------- Confluence response:', response);
+      
+      if (response.results && response.results.length > 0) {
+        const content = response.results[0];
+        return [{
+          type: "text",
+          text: `Title: ${content.title}
+ID: ${content.id}
+Type: ${content.type}
+Status: ${content.status}
+${content.body?.storage?.value ? `\nContent:\n${content.body.storage.value}` : ''}`
+        }];
+      }
+      
+      return [{
+        type: "text",
+        text: 'No content found'
+      }];
+    } catch (err) {
+      console.error('Error getting Confluence content:', err);
+      return [{
+        type: "text",
+        text: `Error getting Confluence content: ${err.message}`
+      }];
     }
   }
 };
