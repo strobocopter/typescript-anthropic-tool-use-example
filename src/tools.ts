@@ -227,7 +227,7 @@ const tools: Anthropic.Tool[] = [
   },
   {
     name: "create_song_with_suno_ai_classic",
-    description: "Creates a song using Suno AI classic API",
+    description: "Creates a song using Suno AI classic API, does not currently support instant video generation",
     input_schema: {
       type: "object",
       properties: {
@@ -258,7 +258,7 @@ const tools: Anthropic.Tool[] = [
   },
   {
     name: 'create_song_suno_ai_ace',
-    description: 'Create a song using Suno ACE API.',
+    description: 'Create a song using Suno ACE API, supports music videos as well',
     input_schema: {
       type: 'object',
       properties: {
@@ -379,20 +379,28 @@ Video URL: ${song.video_url}`
       console.log('-------- ACE Data response:', response);
       
       if (response.success && response.data.length > 0) {
-        const song = response.data[0];
-        return `Generated song "${song.title}":
+        return response.data.map(song => ({
+          type: "text",
+          text: `Generated song "${song.title}":
 Lyrics:
 ${song.lyric}
 
 Style: ${song.style}
 Audio URL: ${song.audio_url}
-Video URL: ${song.video_url}`;
+Video URL: ${song.video_url}`
+        }));
       }
       
-      return 'Failed to generate song';
+      return [{
+        type: "text",
+        text: 'Failed to generate song'
+      }];
     } catch (err) {
       console.error('Error creating song with ACE Data:', err);
-      return 'Error creating song with ACE Data';
+      return [{
+        type: "text",
+        text: 'Error creating song with ACE Data'
+      }];
     }
   },
   get_confluence_content: async (input: GetContentParams) => {
