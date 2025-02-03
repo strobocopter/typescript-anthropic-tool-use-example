@@ -4,6 +4,10 @@ This repository demonstrates how to use Claude with multiple API tools including
 
 ![LLM with API Tools Architecture](llm-with-api-tools.png)
 
+The Anthropic tool description and API client code has been generated with [Postman's New Toolgen API](https://www.postman.com/explore/toolgen).
+
+![Postman Toolgen DALL-E Example](postman-toolgen-dall-e.png)
+
 ## Available Organs (Tools) to the Agentic AI (Claude LLM)
 
 ### Weather API
