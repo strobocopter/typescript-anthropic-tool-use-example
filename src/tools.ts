@@ -211,6 +211,53 @@ const getConfluenceContent = async ({ type, title, expand }: GetContentParams) =
   }
 };
 
+type ImageGenerationParams = {
+  prompt: string;
+  n?: number;
+  size?: '256x256' | '512x512' | '1024x1024';
+  model?: 'dall-e-3' | 'dall-e-2';
+};
+
+type ImageData = {
+  revised_prompt: string;
+  url: string;
+};
+
+type ImageGenerationResponse = {
+  created: number;
+  data: ImageData[];
+};
+
+const generateImage = async ({
+  prompt,
+  n = 1,
+  size = '1024x1024',
+  model = 'dall-e-3',
+}: ImageGenerationParams): Promise<ImageGenerationResponse> => {
+  const baseUrl = 'https://api.openai.com/v1';
+  
+  try {
+    const response = await fetch(`${baseUrl}/images/generations`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ prompt, n, size, model }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(JSON.stringify(errorData));
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error generating image:', error);
+    throw new Error('An error occurred while generating the image.');
+  }
+};
+
 const tools: Anthropic.Tool[] = [
   {
     name: "get_weather",
@@ -327,6 +374,37 @@ const tools: Anthropic.Tool[] = [
       required: ["type", "title"],
       additionalProperties: false
     }
+  },
+  {
+    name: "generate_image",
+    description: "Generate an image using DALL-E 3",
+    input_schema: {
+      type: "object",
+      properties: {
+        prompt: {
+          type: "string",
+          description: "The description of the image to generate"
+        },
+        n: {
+          type: "integer",
+          minimum: 1,
+          maximum: 10,
+          description: "The number of images to generate. Defaults to 1. dalle-3 only supports 1."
+        },
+        size: {
+          type: "string",
+          enum: ["256x256", "512x512", "1024x1024"],
+          description: "The size of the generated image. Larger sizes produce more detailed images. Defaults to 1024x1024. dall-e-3 only supports 1024x1024."
+        },
+        model: {
+          type: "string",
+          enum: ["dall-e-3", "dall-e-2"],
+          description: "The model to use for image generation."
+        }
+      },
+      required: ["prompt"],
+      additionalProperties: false
+    }
   }
 ];
 
@@ -429,6 +507,33 @@ ${content.body?.storage?.value ? `\nContent:\n${content.body.storage.value}` : '
       return [{
         type: "text",
         text: `Error getting Confluence content: ${err.message}`
+      }];
+    }
+  },
+  generate_image: async (input: ImageGenerationParams) => {
+    try {
+      const response = await generateImage(input);
+      console.log('-------- DALL-E response:', response);
+      
+      if (response.data && response.data.length > 0) {
+        return response.data.map(image => ({
+          type: "text",
+          text: `Generated image:
+Original prompt: ${input.prompt}
+Revised prompt: ${image.revised_prompt}
+Image URL: ${image.url}`
+        }));
+      }
+      
+      return [{
+        type: "text",
+        text: 'Failed to generate image'
+      }];
+    } catch (err) {
+      console.error('Error generating image:', err);
+      return [{
+        type: "text",
+        text: `Error generating image: ${err.message}`
       }];
     }
   }
