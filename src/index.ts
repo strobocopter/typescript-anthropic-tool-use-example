@@ -95,12 +95,21 @@ async function processResponse(response: Anthropic.Messages.Message) {
 
 async function main() {
   while (true) {
-    const userPrompt = await query();
-    await callClaude(userPrompt) //
-      .then(processResponse);
-    console.log("");
+    try {
+      const userInput = await query();
+      const response = await callClaude(userInput);
+      await processResponse(response);
+    } catch (error) {
+      console.error('Error communicating with Claude:', error.message);
+      // Continue with next iteration instead of exiting
+      continue;
+    }
   }
 }
 
-main();
+// Start the application with error handling
+main().catch(error => {
+  console.error('Fatal error:', error);
+  process.exit(1);
+});
 
