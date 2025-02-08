@@ -177,13 +177,18 @@ type GetContentParams = {
 };
 
 const getConfluenceContent = async ({ type, title, expand }: GetContentParams) => {
-  // retrieve base url from environment variables
   const baseUrl = `${process.env.CONFLUENCE_BASE_URL}/wiki/rest`;
   const url = new URL(`${baseUrl}/api/content`);
   
   url.searchParams.append('type', type);
   url.searchParams.append('title', title);
-  url.searchParams.append('expand', expand.join(','));
+  // Handle expand parameter - ensure it's an array and join with commas
+  if (expand && Array.isArray(expand)) {
+    url.searchParams.append('expand', expand.join(','));
+  } else {
+    // Default to include body.storage if no expand is provided
+    url.searchParams.append('expand', 'body.storage');
+  }
 
   // Create basic auth token
   const auth = Buffer.from(
@@ -481,9 +486,16 @@ Video URL: ${song.video_url}`
       }];
     }
   },
-  get_confluence_content: async (input: GetContentParams) => {
+  get_confluence_content: async (input: Partial<GetContentParams>) => {
     try {
-      const response = await getConfluenceContent(input);
+      // Ensure required parameters and defaults
+      const params: GetContentParams = {
+        type: input.type || 'page',
+        title: input.title || '',
+        expand: Array.isArray(input.expand) ? input.expand : ['body.storage']
+      };
+
+      const response = await getConfluenceContent(params);
       console.log('-------- Confluence response:', response);
       
       if (response.results && response.results.length > 0) {
