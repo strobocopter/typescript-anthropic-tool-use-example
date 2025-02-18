@@ -117,7 +117,7 @@ async function callClaude(prompt: string | MessageParam[]) {
         "anthropic.claude-3-5-sonnet-20241022-v2:0" :
         "claude-3-5-sonnet-latest",
       temperature: 0.95,
-      max_tokens: 1024,
+      max_tokens: 2048,
       messages: messages,
       tools: tools,
     })
