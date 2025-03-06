@@ -1,4 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { Buffer } from 'buffer';
+import process from 'process';
 
 type CreateSongParams = {
   prompt: string;
@@ -263,6 +265,136 @@ const generateImage = async ({
   }
 };
 
+// Backstage Catalog Tool
+
+// Define types for Backstage Catalog
+
+type EntityMetadata = {
+  namespace: string;
+  annotations: Record<string, string>;
+  name: string;
+  title: string;
+  description: string;
+  tags: string[];
+  uid: string;
+  etag: string;
+};
+
+type EntitySpec = {
+  type: string;
+  lifecycle: string;
+  owner: string;
+  definition: string;
+  system: string;
+};
+
+type EntityRelation = {
+  type: string;
+  targetRef: string;
+};
+
+type Entity = {
+  metadata: EntityMetadata;
+  apiVersion: string;
+  kind: string;
+  spec: EntitySpec;
+  relations: EntityRelation[];
+};
+
+type PageInfo = {
+  nextCursor?: string;
+  prevCursor?: string;
+};
+
+type GetEntitiesByQueryResponse = {
+  items: (Entity | null)[];
+  totalItems: number | string;
+  pageInfo: PageInfo;
+};
+
+type functionParams = {
+  filter: string;
+  fields?: string;
+  limit?: number;
+  orderField?: string;
+  cursor?: string;
+};
+
+const getEntitiesByQuery = async ({ filter, fields, limit, orderField, cursor }: functionParams): Promise<GetEntitiesByQueryResponse> => {
+  const baseUrl = process.env.BACKSTAGE_BASE_URL || '/'; // Base URL will be provided by the user
+  const url = new URL(`${baseUrl}/entities/by-query`);
+
+  // Construct query parameters
+  const params = new URLSearchParams();
+  // log out the filter
+  console.log('filter:', filter);
+  // if filter is not in the form metadata.tags=foo, add metadata.tags=
+  if (!filter.includes('=')) {
+    params.append('filter', `metadata.tags=${filter}`);
+  } else {
+    params.append('filter', filter);
+  }
+  if (fields) params.append('fields', fields);
+  // if limit is not set, set it to 100
+  if (!limit) limit = 100;
+  params.append('limit', limit.toString());
+  if (orderField) params.append('orderField', orderField);
+  if (cursor) params.append('cursor', cursor);
+  
+  // Perform the fetch request
+  const response = await fetch(`${url}?${params.toString()}`, {
+    method: 'GET',
+    headers: {
+      'Accept': 'application/json',
+    },
+  });
+
+  // Check if the response was successful
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(JSON.stringify(errorData));
+  }
+
+  // Parse and return the response data
+  const data: GetEntitiesByQueryResponse = await response.json();
+  return data;
+};
+
+const backstageTool = {
+  function: getEntitiesByQuery,
+  definition: {
+    name: 'get_entities_by_query',
+    description: 'Search for Backstage and Postman Private API Network entities by a given query.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        filter: {
+          type: 'string',
+          description: 'Filter for just the entities defined by this filter, e.g. metadata.tags=foo for tag foo in Postman and Backstage'
+        },
+        fields: {
+          type: 'string',
+          description: 'Restrict to just these fields in the response.'
+        },
+        limit: {
+          type: 'integer',
+          description: 'Number of records to return in the response.'
+        },
+        orderField: {
+          type: 'string',
+          description: 'The fields to sort returned results by.'
+        },
+        cursor: {
+          type: 'string',
+          description: 'Cursor to a set page of results.'
+        }
+      },
+      required: ['filter'],
+      additionalProperties: false
+    }
+  }
+};
+
 const tools: Anthropic.Tool[] = [
   {
     name: "get_weather",
@@ -410,23 +542,40 @@ const tools: Anthropic.Tool[] = [
       required: ["prompt"],
       additionalProperties: false
     }
-  }
+  },
+  backstageTool.definition,
 ];
 
 const functions = {
   get_weather: async (input: { location: string }) => {
+    console.log(`[WEATHER] Fetching weather for location: ${input.location}`);
+    
     try {
+      const apiKey = process.env.WEATHER_API_KEY;
+      if (!apiKey) {
+        console.error("[WEATHER] Error: No API key found in environment variables");
+        throw new Error("Weather API key not found");
+      }
+      
+      console.log("[WEATHER] Making API request to WeatherAPI.com");
       const response = await fetch(
-        `https://api.weatherapi.com/v1/current.json?q=${input.location}&lang=en-us&key=${process.env.WEATHER_API_KEY}`,
+        `http://api.weatherapi.com/v1/current.json?key=${apiKey}&q=${input.location}&aqi=no`
       );
+      
+      if (!response.ok) {
+        console.error(`[WEATHER] API error: ${response.status} ${response.statusText}`);
+        throw new Error(`Weather API error: ${response.status} ${response.statusText}`);
+      }
+      
       const data = await response.json();
-      console.log(
-        `-------- Weather API response was ${data.current?.condition?.text ?? "unknown"}`,
-      );
-      return `The weather in ${input.location} is ${data.current?.condition?.text ?? "unknown"}`;
-    } catch (err) {
-      console.error(`Error getting the weather:`, err);
-      return `Error getting the weather for ${input.location}`;
+      console.log(`[WEATHER] Response received: ${JSON.stringify(data, null, 2)}`);
+      
+      const result = `The current weather in ${data.location.name} is ${data.current.condition.text} with a temperature of ${data.current.temp_c}°C (${data.current.temp_f}°F).`;
+      console.log(`[WEATHER] Returning result: ${result}`);
+      return result;
+    } catch (error) {
+      console.error(`[WEATHER] Error fetching weather: ${error}`);
+      throw error;
     }
   },
   create_song_with_suno_ai_classic: async (input: CreateSongParams) => {
@@ -548,7 +697,45 @@ Image URL: ${image.url}`
         text: `Error generating image: ${err.message}`
       }];
     }
-  }
+  },
+  get_entities_by_query: async (input: functionParams) => {
+    try {
+      const response = await getEntitiesByQuery(input);
+      console.log('-------- Backstage response:', response);
+      
+      if (response.items && response.items.length > 0) {
+        return response.items.map(entity => ({
+          type: "text",
+          text: `Entity name: ${entity?.metadata.name}
+Entity type: ${entity?.spec.type}
+Entity owner: ${entity?.spec.owner}
+Entity description: ${entity?.metadata.description}
+View URL (points to Postman): ${entity?.metadata.annotations['backstage.io/view-url']}
+quitEntity definition: ${entity?.spec.definition}
+Entity namespace: ${entity?.metadata.namespace}
+Entity uid: ${entity?.metadata.uid}
+Entity etag: ${entity?.metadata.etag}
+Entity lifecycle: ${entity?.spec.lifecycle}
+Entity system: ${entity?.spec.system}
+Entity relations: ${entity?.relations.map(relation => relation.type + ' -> ' + relation.targetRef).join(', ')}
+Entity apiVersion: ${entity?.apiVersion}
+Entity kind: ${entity?.kind}
+Entity annotations: ${Object.entries(entity?.metadata.annotations).map(([key, value]) => `${key}: ${value}`).join(', ')}`
+        }));
+      }
+      
+      return [{
+        type: "text",
+        text: 'No entities found'
+      }];
+    } catch (err) {
+      console.error('Error getting entities by query:', err);
+      return [{
+        type: "text",
+        text: `Error getting entities by query: ${err.message}`
+      }];
+    }
+  },
 };
 
 export { tools, functions };
