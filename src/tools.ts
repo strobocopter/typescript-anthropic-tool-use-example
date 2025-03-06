@@ -713,6 +713,7 @@ Entity description: ${entity?.metadata.description}
 View URL (points to Postman): ${entity?.metadata.annotations['backstage.io/view-url']}
 quitEntity definition: ${entity?.spec.definition}
 Entity namespace: ${entity?.metadata.namespace}
+Entity spec: ${JSON.stringify(entity?.spec, null, 2)}
 Entity uid: ${entity?.metadata.uid}
 Entity etag: ${entity?.metadata.etag}
 Entity lifecycle: ${entity?.spec.lifecycle}
