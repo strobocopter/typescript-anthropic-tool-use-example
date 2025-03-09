@@ -6,9 +6,14 @@ import {
 } from "@anthropic-ai/sdk/resources/messages.mjs";
 import Anthropic from "@anthropic-ai/sdk";
 import { BedrockRuntimeClient, InvokeModelCommand } from "@aws-sdk/client-bedrock-runtime";
+import net from 'net';
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+import { z, ZodTypeAny } from 'zod';
+import express, { Express } from "express";
 dotenv.config();
 
-import { tools, functions } from "./tools";
+import { tools, functions, zodSchemas } from "./tools";
 
 // AWS Bedrock client configuration
 const createBedrockClient = () => {
@@ -172,10 +177,99 @@ async function processResponse(response: Anthropic.Messages.Message) {
 }
 
 async function main() {
+  // Create Express app
+  const app: Express = express();
+  
+  // Only parse JSON for non-message endpoints
+  app.use((req, res, next) => {
+    if (req.path !== '/message') {
+      express.json()(req, res, next);
+    } else {
+      next();
+    }
+  });
+
+  // Create MCP server using the SDK
+  const mcpServer = new McpServer({
+    name: "claude-tools",
+    version: "1.0.0"
+  });
+  
+  // Register all existing tools from tools.ts
+  for (const tool of tools) {
+    const func = functions[tool.name];
+    const schema = zodSchemas[tool.name];
+    // log tool name and schema
+    console.log(`Registering tool: ${tool.name}`);
+    if (func) {
+      mcpServer.tool(
+        tool.name,
+        tool.description || tool.name,
+        schema,
+        func
+      );
+    }
+  }
+
+  // Set up SSE endpoint with multiple transports
+  const transports = new Map<string, SSEServerTransport>();
+
+  app.get("/sse", async (req, res) => {
+    
+    const transport = new SSEServerTransport("/message", res);
+    await mcpServer.connect(transport);
+    
+    const sessionId = transport.sessionId;
+    console.log(`[SSE] New connection established: ${sessionId}`);
+    transports.set(sessionId, transport);
+
+    // Handle connection close
+    req.on('close', async () => {
+      console.log(`[SSE] Connection closed: ${sessionId}`);
+      transports.delete(sessionId);
+    });
+  });
+
+  app.post("/message", async (req, res) => {
+    const sessionId = req.query.sessionId as string;
+
+    const transport = transports.get(sessionId);
+    if (!transport) {
+      console.log(`[SSE] Error: No transport found for session ${sessionId}`);
+      res.status(400).json({ error: "No active transport" });
+      return;
+    }
+    
+    try {
+      // log incoming message
+      console.log(`[SSE] Received message for ${sessionId}:`, req.body);
+      await transport.handlePostMessage(req, res);
+    } catch (error) {
+      console.error(`[SSE] Error handling message for ${sessionId}:`, error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Error handling message" });
+      }
+    }
+  });
+
+  // Start the Express server
+  const PORT = process.env.PORT || 3001;
+  const server = app.listen(PORT, () => {
+    console.log(`MCP Server running on port ${PORT}`);
+  });
+
+  // Handle server shutdown
+  process.on('SIGTERM', async () => {
+    console.log('Shutting down server...');
+    await mcpServer.close();
+    server.close();
+    process.exit(0);
+  });
+
+  // Continue with existing CLI loop
   while (true) {
     try {
       const userInput = await query();
-      // if user input is empty, prompt again
       if (userInput === "") {
         console.log("Please enter a message.");
         continue;
@@ -187,7 +281,6 @@ async function main() {
       }
     } catch (error) {
       console.error('Error communicating with Claude:', error.message);
-      // Continue with next iteration instead of exiting
       continue;
     }
   }

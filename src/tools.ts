@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { Buffer } from 'buffer';
 import process from 'process';
+import { z } from 'zod';
 
 type CreateSongParams = {
   prompt: string;
@@ -233,6 +234,74 @@ type ImageData = {
 type ImageGenerationResponse = {
   created: number;
   data: ImageData[];
+};
+
+// Add this near the top of the file after the imports
+const zodSchemas = {
+  get_weather: {
+    location: z.string().describe("The location to get the weather for")
+  },
+
+  create_song_with_suno_ai_classic: {
+    prompt: z.string().describe("The lyrics for the song, do not include instructions what the lyrics should be, just the lyrics themselves"),
+    tags: z.string().optional().describe("genre with the song"),
+    title: z.string().describe("The title of the song"),
+    make_instrumental: z.boolean().optional().describe("Whether to create an instrumental version of the song"),
+    wait_audio: z.boolean().optional().describe("Whether to wait for the audio to be generated")
+  },
+
+  create_song_suno_ai_ace: {
+    musicText: z.string().describe("The lyrics for the song, do not include instructions what the lyrics should be, just the lyrics themselves"),
+    musicStyle: z.string().describe("The style of the music (e.g., \"rock\", \"pop\", \"jazz\").")
+  },
+
+  get_confluence_content: {
+    type: z.enum(["page"]).describe("The type of content to retrieve"),
+    title: z.string().describe("The title of the content to retrieve"),
+    expand: z.array(
+      z.enum([
+        "body",
+        "body.storage",
+        "childTypes.all",
+        "childTypes.attachment",
+        "childTypes.comment",
+        "childTypes.page",
+        "container",
+        "metadata.currentuser",
+        "metadata.properties",
+        "metadata.labels",
+        "operations",
+        "children.page",
+        "children.attachment",
+        "children.comment",
+        "restrictions.read.restrictions.user",
+        "restrictions.read.restrictions.group",
+        "restrictions.update.restrictions.user",
+        "restrictions.update.restrictions.group",
+        "history",
+        "version",
+        "descendants.page",
+        "descendants.attachment",
+        "descendants.comment",
+        "space"
+      ])
+    ).optional().describe("Properties to expand in the response, body.storage is required to get the content")
+  },
+
+  generate_image: {
+    prompt: z.string().describe("The description of the image to generate"),
+    n: z.number().int().min(1).max(10).optional().describe("The number of images to generate. Defaults to 1. dalle-3 only supports 1."),
+    size: z.enum(["256x256", "512x512", "1024x1024"]).optional().describe("The size of the generated image. Larger sizes produce more detailed images. Defaults to 1024x1024. dall-e-3 only supports 1024x1024."),
+    model: z.enum(["dall-e-3", "dall-e-2"]).optional().describe("The model to use for image generation.")
+  },
+
+  get_entities_by_query: {
+    filter: z.string().describe("Filter for just the entities defined by this filter, e.g. metadata.tags=foo for tag foo in Postman and Backstage"),
+    fields: z.string().optional().describe("Restrict to just these fields in the response."),
+    limit: z.number().int().optional().describe("Number of records to return in the response."),
+    orderField: z.string().optional().describe("The fields to sort returned results by."),
+    cursor: z.string().optional().describe("Cursor to a set page of results.")
+  }
 };
 
 const generateImage = async ({
@@ -548,8 +617,6 @@ const tools: Anthropic.Tool[] = [
 
 const functions = {
   get_weather: async (input: { location: string }) => {
-    console.log(`[WEATHER] Fetching weather for location: ${input.location}`);
-    
     try {
       const apiKey = process.env.WEATHER_API_KEY;
       if (!apiKey) {
@@ -557,7 +624,6 @@ const functions = {
         throw new Error("Weather API key not found");
       }
       
-      console.log("[WEATHER] Making API request to WeatherAPI.com");
       const response = await fetch(
         `http://api.weatherapi.com/v1/current.json?key=${apiKey}&q=${input.location}&aqi=no`
       );
@@ -568,10 +634,8 @@ const functions = {
       }
       
       const data = await response.json();
-      console.log(`[WEATHER] Response received: ${JSON.stringify(data, null, 2)}`);
       
       const result = `The current weather in ${data.location.name} is ${data.current.condition.text} with a temperature of ${data.current.temp_c}°C (${data.current.temp_f}°F).`;
-      console.log(`[WEATHER] Returning result: ${result}`);
       return result;
     } catch (error) {
       console.error(`[WEATHER] Error fetching weather: ${error}`);
@@ -739,4 +803,4 @@ Entity annotations: ${Object.entries(entity?.metadata.annotations).map(([key, va
   },
 };
 
-export { tools, functions };
+export { tools, functions, zodSchemas };
