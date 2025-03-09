@@ -636,7 +636,11 @@ const functions = {
       const data = await response.json();
       
       const result = `The current weather in ${data.location.name} is ${data.current.condition.text} with a temperature of ${data.current.temp_c}°C (${data.current.temp_f}°F).`;
-      return result;
+      // return result wrapped like in the other functions
+      return [{
+        type: "text",
+        text: result
+      }];
     } catch (error) {
       console.error(`[WEATHER] Error fetching weather: ${error}`);
       throw error;

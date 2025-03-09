@@ -176,9 +176,24 @@ async function processResponse(response: Anthropic.Messages.Message) {
   }
 }
 
+// Add this utility function after the imports
+type ContentWrapper = {
+  content: Array<{
+    type: "text";
+    text: string;
+  }>;
+};
+
+const wrapToolResponse = (result: any): ContentWrapper => {
+  return {
+    content: result
+  };
+};
+
 async function main() {
   // Create Express app
   const app: Express = express();
+  app.use(express.json());
   
   // Only parse JSON for non-message endpoints
   app.use((req, res, next) => {
@@ -189,32 +204,28 @@ async function main() {
     }
   });
 
-  // Create MCP server using the SDK
-  const mcpServer = new McpServer({
-    name: "claude-tools",
-    version: "1.0.0"
-  });
-  
-  // Register all existing tools from tools.ts
-  for (const tool of tools) {
-    const func = functions[tool.name];
-    const schema = zodSchemas[tool.name];
-    // log tool name and schema
-    console.log(`Registering tool: ${tool.name}`);
-    if (func) {
-      mcpServer.tool(
-        tool.name,
-        tool.description || tool.name,
-        schema,
-        func
-      );
-    }
-  }
-
   // Set up SSE endpoint with multiple transports
   const transports = new Map<string, SSEServerTransport>();
 
   app.get("/sse", async (req, res) => {
+    const mcpServer = new McpServer({
+      name: "Postman Tools",
+      version: "1.0.0"
+    });
+    
+    // Register tools for this connection
+    for (const tool of tools) {
+      const func = functions[tool.name];
+      const schema = zodSchemas[tool.name];
+      if (func) {
+        mcpServer.tool(
+          tool.name,
+          tool.description || tool.name,
+          schema,
+          async (...args) => wrapToolResponse(await func(...args))
+        );
+      }
+    }
     
     const transport = new SSEServerTransport("/message", res);
     await mcpServer.connect(transport);
@@ -223,9 +234,10 @@ async function main() {
     console.log(`[SSE] New connection established: ${sessionId}`);
     transports.set(sessionId, transport);
 
-    // Handle connection close
+    // Handle connection close and cleanup
     req.on('close', async () => {
       console.log(`[SSE] Connection closed: ${sessionId}`);
+      await mcpServer.close();
       transports.delete(sessionId);
     });
   });
@@ -242,8 +254,9 @@ async function main() {
     
     try {
       // log incoming message
-      console.log(`[SSE] Received message for ${sessionId}:`, req.body);
-      await transport.handlePostMessage(req, res);
+      //console.log(`[SSE] Received message for ${sessionId}:`, req.body);
+      await transport.handlePostMessage(req, res, req.body);
+      
     } catch (error) {
       console.error(`[SSE] Error handling message for ${sessionId}:`, error);
       if (!res.headersSent) {
@@ -261,7 +274,6 @@ async function main() {
   // Handle server shutdown
   process.on('SIGTERM', async () => {
     console.log('Shutting down server...');
-    await mcpServer.close();
     server.close();
     process.exit(0);
   });
