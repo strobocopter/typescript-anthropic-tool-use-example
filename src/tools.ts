@@ -2,6 +2,12 @@ import Anthropic from "@anthropic-ai/sdk";
 import { Buffer } from 'buffer';
 import process from 'process';
 import { z } from 'zod';
+import { 
+  postmanPrivateNetworkTool, 
+  getAllElementsAndFoldersZodSchema, 
+  fetchPrivateAPINetworkElements,
+  formatPrivateApiResponse
+} from './private-api-network';
 
 type CreateSongParams = {
   prompt: string;
@@ -296,12 +302,14 @@ const zodSchemas = {
   },
 
   get_entities_by_query: {
-    filter: z.string().describe("Filter for just the entities defined by this filter, e.g. metadata.tags=foo for tag foo in Postman and Backstage"),
-    fields: z.string().optional().describe("Restrict to just these fields in the response."),
-    limit: z.number().int().optional().describe("Number of records to return in the response."),
+    filter: z.string().describe("Filter for just the entities defined by this filter, e.g. metadata.tags=foo for tag foo in Postman and Backstage or metadata.uid=<uid retrieved> to get details about a specific element"),
+    //fields: z.string().optional().describe("Restrict to just these fields in the response."),
+    limit: z.number().int().optional().describe("Number of APIs to return in the response."),
     orderField: z.string().optional().describe("The fields to sort returned results by."),
     cursor: z.string().optional().describe("Cursor to a set page of results.")
-  }
+  },
+
+  get_all_elements_and_folders: getAllElementsAndFoldersZodSchema,
 };
 
 const generateImage = async ({
@@ -447,7 +455,7 @@ const backstageTool = {
         },
         limit: {
           type: 'integer',
-          description: 'Number of records to return in the response.'
+          description: 'Number of APIs to return in the response.'
         },
         orderField: {
           type: 'string',
@@ -613,7 +621,14 @@ const tools: Anthropic.Tool[] = [
     }
   },
   backstageTool.definition,
+  postmanPrivateNetworkTool.definition,
 ];
+
+// Add a utility function for truncating strings
+const truncateString = (str: string, maxLength: number) => {
+  if (str.length <= maxLength) return str;
+  return str.slice(0, maxLength - 3) + '...';
+};
 
 const functions = {
   get_weather: async (input: { location: string }) => {
@@ -772,25 +787,48 @@ Image URL: ${image.url}`
       console.log('-------- Backstage response:', response);
       
       if (response.items && response.items.length > 0) {
-        return response.items.map(entity => ({
-          type: "text",
-          text: `Entity name: ${entity?.metadata.name}
-Entity type: ${entity?.spec.type}
-Entity owner: ${entity?.spec.owner}
-Entity description: ${entity?.metadata.description}
-View URL (points to Postman): ${entity?.metadata.annotations['backstage.io/view-url']}
-quitEntity definition: ${entity?.spec.definition}
-Entity namespace: ${entity?.metadata.namespace}
-Entity spec: ${JSON.stringify(entity?.spec, null, 2)}
-Entity uid: ${entity?.metadata.uid}
-Entity etag: ${entity?.metadata.etag}
-Entity lifecycle: ${entity?.spec.lifecycle}
-Entity system: ${entity?.spec.system}
-Entity relations: ${entity?.relations.map(relation => relation.type + ' -> ' + relation.targetRef).join(', ')}
-Entity apiVersion: ${entity?.apiVersion}
-Entity kind: ${entity?.kind}
-Entity annotations: ${Object.entries(entity?.metadata.annotations).map(([key, value]) => `${key}: ${value}`).join(', ')}`
-        }));
+        // If there's only one item, include full details with definition
+        if (response.items.length === 1 && response.items[0]) {
+          const entity = response.items[0];
+          const text = `Entity name: ${entity.metadata.name}
+Entity type: ${entity.spec.type}
+Entity owner: ${entity.spec.owner}
+Entity description: ${entity.metadata.description}
+View URL (points to Postman): ${entity.metadata.annotations['backstage.io/view-url']}
+Entity definition: ${entity.spec.definition}
+Entity namespace: ${entity.metadata.namespace}
+Entity uid: ${entity.metadata.uid}
+Entity etag: ${entity.metadata.etag}
+Entity lifecycle: ${entity.spec.lifecycle}
+Entity system: ${entity.spec.system}
+Entity relations: ${entity.relations.map(relation => relation.type + ' -> ' + relation.targetRef).join(', ')}
+Entity apiVersion: ${entity.apiVersion}
+Entity kind: ${entity.kind}
+Entity annotations: ${Object.entries(entity.metadata.annotations).map(([key, value]) => `${key}: ${value}`).join(', ')}`;
+
+          return [{
+            type: "text",
+            text: truncateString(text, 19000)
+          }];
+        }
+
+        // For multiple items, exclude the definition and also truncate the text
+        // to avoid exceeding the character limit
+        return response.items.map(entity => {
+          if (!entity) return null;
+          return {
+            type: "text",
+            text: `Entity name: ${entity.metadata.name}
+Entity type: ${entity.spec.type}
+Entity owner: ${entity.spec.owner}
+Entity description: ${entity.metadata.description}
+View URL (points to Postman): ${entity.metadata.annotations['backstage.io/view-url']}
+Entity namespace: ${entity.metadata.namespace}
+Entity uid: ${entity.metadata.uid}
+Entity lifecycle: ${entity.spec.lifecycle}
+Entity system: ${entity.spec.system}`
+          };
+        }).filter(Boolean);
       }
       
       return [{
@@ -805,6 +843,18 @@ Entity annotations: ${Object.entries(entity?.metadata.annotations).map(([key, va
       }];
     }
   },
+  get_all_elements_and_folders: async (params) => {
+    try {
+      const response = await fetchPrivateAPINetworkElements(params);
+      return formatPrivateApiResponse(response);
+    } catch (err) {
+      console.error('Error getting elements and folders:', err);
+      return [{
+        type: "text",
+        text: `Error getting elements and folders: ${err.message}`
+      }];
+    }
+  }
 };
 
 export { tools, functions, zodSchemas };
