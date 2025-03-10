@@ -312,6 +312,13 @@ const zodSchemas = {
   get_all_elements_and_folders: getAllElementsAndFoldersZodSchema,
 };
 
+// Add a utility function for truncating strings
+const truncateString = (str: string, maxLength?: number) => {
+  const limit = maxLength || Number(process.env.TRUNCATION_LIMIT) || 19000;
+  if (str.length <= limit) return str;
+  return str.slice(0, limit - 3) + '...';
+};
+
 const generateImage = async ({
   prompt,
   n = 1,
@@ -384,7 +391,7 @@ type PageInfo = {
 };
 
 type GetEntitiesByQueryResponse = {
-  items: (Entity | null)[];
+  items: (Entity)[];
   totalItems: number | string;
   pageInfo: PageInfo;
 };
@@ -624,12 +631,6 @@ const tools: Anthropic.Tool[] = [
   postmanPrivateNetworkTool.definition,
 ];
 
-// Add a utility function for truncating strings
-const truncateString = (str: string, maxLength: number) => {
-  if (str.length <= maxLength) return str;
-  return str.slice(0, maxLength - 3) + '...';
-};
-
 const functions = {
   get_weather: async (input: { location: string }) => {
     try {
@@ -720,7 +721,6 @@ Video URL: ${song.video_url}`
   },
   get_confluence_content: async (input: Partial<GetContentParams>) => {
     try {
-      // Ensure required parameters and defaults
       const params: GetContentParams = {
         type: input.type || 'page',
         title: input.title || '',
@@ -732,13 +732,15 @@ Video URL: ${song.video_url}`
       
       if (response.results && response.results.length > 0) {
         const content = response.results[0];
-        return [{
-          type: "text",
-          text: `Title: ${content.title}
+        const text = `Title: ${content.title}
 ID: ${content.id}
 Type: ${content.type}
 Status: ${content.status}
-${content.body?.storage?.value ? `\nContent:\n${content.body.storage.value}` : ''}`
+${content.body?.storage?.value ? `\nContent:\n${content.body.storage.value}` : ''}`;
+
+        return [{
+          type: "text",
+          text: truncateString(text)
         }];
       }
       
@@ -788,9 +790,12 @@ Image URL: ${image.url}`
       
       if (response.items && response.items.length > 0) {
         // If there's only one item, include full details with definition
-        if (response.items.length === 1 && response.items[0]) {
+        if (response.items.length === 1) {
           const entity = response.items[0];
-          const text = `Entity name: ${entity.metadata.name}
+          const text = `Total items found: ${response.totalItems}
+
+Entity title: ${entity.metadata.title}
+Entity id: ${entity.metadata.name}
 Entity type: ${entity.spec.type}
 Entity owner: ${entity.spec.owner}
 Entity description: ${entity.metadata.description}
@@ -808,17 +813,16 @@ Entity annotations: ${Object.entries(entity.metadata.annotations).map(([key, val
 
           return [{
             type: "text",
-            text: truncateString(text, 19000)
+            text: truncateString(text)
           }];
         }
 
-        // For multiple items, exclude the definition and also truncate the text
-        // to avoid exceeding the character limit
-        return response.items.map(entity => {
-          if (!entity) return null;
-          return {
-            type: "text",
-            text: `Entity name: ${entity.metadata.name}
+        // For multiple items, combine all items into one string and truncate
+        const text = `Total items found: ${response.totalItems}
+
+${response.items.map(entity => 
+          `Entity title: ${entity.metadata.title}
+Entity id: ${entity.metadata.name}
 Entity type: ${entity.spec.type}
 Entity owner: ${entity.spec.owner}
 Entity description: ${entity.metadata.description}
@@ -826,9 +830,13 @@ View URL (points to Postman): ${entity.metadata.annotations['backstage.io/view-u
 Entity namespace: ${entity.metadata.namespace}
 Entity uid: ${entity.metadata.uid}
 Entity lifecycle: ${entity.spec.lifecycle}
-Entity system: ${entity.spec.system}`
-          };
-        }).filter(Boolean);
+Entity system: ${entity.spec.system}
+---`).join('\n')}`;
+
+        return [{
+          type: "text",
+          text: truncateString(text)
+        }];
       }
       
       return [{
