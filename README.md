@@ -1,12 +1,16 @@
 # Typescript Anthropic Tool Use Example
 
-This repository demonstrates how to use Claude with multiple API tools including Weather, Music Generation (Suno), Image Generation (DALL-E), and Content Management (Confluence).
+This repository demonstrates how to use Claude with multiple API tools including Weather, Music Generation (Suno), Image Generation (DALL-E), Content Management (Confluence), Backstage Catalog, Postman Private API Network, and Postman Collections.
 
 ![LLM with API Tools Architecture](llm-with-api-tools.png)
 
 The Anthropic tool description and API client code has been generated with [Postman's New Toolgen API](https://www.postman.com/explore/toolgen).
 
 ![Postman Toolgen DALL-E Example](postman-toolgen-dall-e.png)
+
+## MCP Server Functionality
+
+The embedded Multi-Channel Prompt (MCP) server enables LLMs like Claude to interact with the exposed APIs and services through a unified interface. This allows for complex workflows combining multiple tools in response to natural language requests. In addition to the MCP server functionality, this application also provides a standalone, built-in, console based chat.
 
 ## Available Organs (Tools) to the Agentic AI (Claude LLM)
 
@@ -43,6 +47,25 @@ The Anthropic tool description and API client code has been generated with [Post
   - `CONFLUENCE_API_KEY`
   - `CONFLUENCE_BASE_URL`
 
+### Backstage Catalog
+- Query and retrieve entities from Backstage
+- Filter entities by various criteria including tags, names, and metadata
+- Get detailed information about API specifications and documentation
+- Supports pagination and field selection
+- Requires `BACKSTAGE_BASE_URL` in environment variables
+
+### Postman Private API Network
+- Browse and search through private API collections
+- Retrieve detailed API documentation and specifications
+- Navigate through API folders and hierarchies
+- View API endpoints and their details
+
+### Postman Collections
+- Fetch detailed collection information
+- Access API documentation, endpoints, and example requests
+- View collection structure and organization
+- Support for both private and public collections
+
 ## Setup
 
 1. Clone this repository
@@ -57,6 +80,8 @@ CONFLUENCE_USERNAME=your_confluence_email
 CONFLUENCE_API_KEY=your_confluence_api_key
 CONFLUENCE_BASE_URL=your_confluence_url
 OPENAI_API_KEY=your_openai_key
+BACKSTAGE_BASE_URL=your_backstage_url
+POSTMAN_API_KEY=your_postman_key
 ```
 
 ## Usage
@@ -90,10 +115,25 @@ Check the weather in Paris and generate a DALL-E image that captures that weathe
 Get the architecture diagram description from our Confluence page titled "System Design" and create a DALL-E image based on it
 ```
 
+5. API Discovery:
+```
+Show me all APIs tagged with 'erp' in our Postman Private API Network and summarize their capabilities
+```
+
+6. Backstage Integration:
+```
+Find all API entities in Backstage that are related to our payment system and show their documentation
+```
+
+7. Collection Analysis:
+```
+Get the details of our order management collection and list all its endpoints
+```
+
 ## Error Handling
 
 Each tool includes proper error handling and logging. Check the console output for detailed information about API responses and any errors that occur.
 
-## Origial Repository
+## Original Repository
 
 The original base logic for Anthropic Function calling has been forked from [this repository](https://github.com/codewithpassion/typescript-anthropic-tool-use-example).
