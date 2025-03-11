@@ -84,7 +84,7 @@ type FunctionParams = {
 
 // Add zod schema for validation
 export const getCollectionZodSchema = {
-  collectionId: z.string().describe('The ID of the collection to retrieve.'),
+  collectionId: z.string().describe('The mandatory ID / UID  of the collection to retrieve.'),
   access_key: z.string().optional().describe('A collection\'s read-only access key (optional).'),
   model: z.enum(['minimal']).optional().describe('Return a minimal representation of the collection (optional).')
 };

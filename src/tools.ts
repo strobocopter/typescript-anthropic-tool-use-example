@@ -308,7 +308,7 @@ const zodSchemas = {
   },
 
   get_entities_by_query: {
-    filter: z.string().describe("Filter for just the entities defined by this filter, e.g. metadata.tags=foo for tag foo in Backstage or metadata.uid=<uid retrieved> to get details about a specific element"),
+    filter: z.string().describe("Filter for just the entities defined by this filter, e.g. metadata.tags=foo for tag foo in Backstage or metadata.name=<uid retrieved> to get details about a specific element"),
     //fields: z.string().optional().describe("Restrict to just these fields in the response."),
     limit: z.number().int().optional().describe("Number of APIs to return in the response."),
     orderField: z.string().optional().describe("The fields to sort returned results by."),
