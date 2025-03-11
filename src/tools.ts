@@ -8,6 +8,12 @@ import {
   fetchPrivateAPINetworkElements,
   formatPrivateApiResponse
 } from './private-api-network';
+import { 
+  postmanCollectionTool, 
+  getCollectionZodSchema, 
+  fetchPostmanCollection,
+  formatCollectionResponse
+} from './postman-collection';
 
 type CreateSongParams = {
   prompt: string;
@@ -302,7 +308,7 @@ const zodSchemas = {
   },
 
   get_entities_by_query: {
-    filter: z.string().describe("Filter for just the entities defined by this filter, e.g. metadata.tags=foo for tag foo in Postman and Backstage or metadata.uid=<uid retrieved> to get details about a specific element"),
+    filter: z.string().describe("Filter for just the entities defined by this filter, e.g. metadata.tags=foo for tag foo in Backstage or metadata.uid=<uid retrieved> to get details about a specific element"),
     //fields: z.string().optional().describe("Restrict to just these fields in the response."),
     limit: z.number().int().optional().describe("Number of APIs to return in the response."),
     orderField: z.string().optional().describe("The fields to sort returned results by."),
@@ -310,6 +316,7 @@ const zodSchemas = {
   },
 
   get_all_elements_and_folders: getAllElementsAndFoldersZodSchema,
+  get_collection: getCollectionZodSchema,
 };
 
 // Add a utility function for truncating strings
@@ -448,7 +455,7 @@ const backstageTool = {
   function: getEntitiesByQuery,
   definition: {
     name: 'get_entities_by_query',
-    description: 'Search for Backstage and Postman Private API Network entities by a given query.',
+    description: 'Search for Backstage API entities by a given query.',
     input_schema: {
       type: 'object',
       properties: {
@@ -629,6 +636,7 @@ const tools: Anthropic.Tool[] = [
   },
   backstageTool.definition,
   postmanPrivateNetworkTool.definition,
+  postmanCollectionTool.definition,
 ];
 
 const functions = {
@@ -860,6 +868,22 @@ Entity system: ${entity.spec.system}
       return [{
         type: "text",
         text: `Error getting elements and folders: ${err.message}`
+      }];
+    }
+  },
+  get_collection: async (params) => {
+    try {
+      const response = await fetchPostmanCollection(params);
+      const formattedResponse = formatCollectionResponse(response);
+      return formattedResponse.map(item => ({
+        ...item,
+        text: truncateString(item.text)
+      }));
+    } catch (err) {
+      console.error('Error getting collection:', err);
+      return [{
+        type: "text",
+        text: `Error getting collection: ${err.message}`
       }];
     }
   }
