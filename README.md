@@ -70,8 +70,9 @@ The embedded Multi-Channel Prompt (MCP) server enables LLMs like Claude to inter
 
 1. Clone this repository
 2. Install dependencies with `yarn install`
-3. Copy `.env.example` to `.env`
-4. Add your API keys to `.env`:
+3. Build the application with `yarn build`
+4. Copy `.env.example` to `.env`
+5. Add your API keys to `.env`:
 ```env
 ANTHROPIC_API_KEY=your_anthropic_key
 WEATHER_API_KEY=your_weather_key
