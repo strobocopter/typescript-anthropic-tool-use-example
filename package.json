@@ -20,7 +20,7 @@
   },
   "scripts": {
     "build": "tsup src/index.ts",
-    "start": "yarn build && node --no-deprecation dist/index.js",
+    "start": "node --no-deprecation dist/index.js",
     "format": "prettier --write .",
     "dev": "tsup src/index.ts --watch --sourcemap --onSuccess \"node dist/index.js\""
   }
