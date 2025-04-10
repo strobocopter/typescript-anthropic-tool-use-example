@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { Buffer } from 'buffer';
 import process from 'process';
 import { z } from 'zod';
+
 import {
   postmanPrivateNetworkTool,
   getAllElementsAndFoldersZodSchema,
@@ -20,6 +21,11 @@ import {
   generate_tool_from_postman_request,
   GenerateToolParams,
 } from './postman-toolgen';
+import {
+  postmanNetworkSearchTool,
+  searchNetworkZodSchema,
+  search_postman_network,
+} from './postman-network-search';
 
 type CreateSongParams = {
   prompt: string;
@@ -323,7 +329,8 @@ const zodSchemas = {
 
   get_all_elements_and_folders: getAllElementsAndFoldersZodSchema,
   get_collection: getCollectionZodSchema,
-  generate_tool: generateToolZodSchema
+  generate_tool: generateToolZodSchema,
+  search_postman_network: searchNetworkZodSchema
 };
 
 // Add a utility function for truncating strings
@@ -464,7 +471,7 @@ const backstageTool = {
     name: 'get_entities_by_query',
     description: 'Search for Backstage API entities by a given query.',
     input_schema: {
-      type: 'object',
+      type: "object",
       properties: {
         filter: {
           type: 'string',
@@ -645,6 +652,7 @@ const tools: Anthropic.Tool[] = [
   postmanPrivateNetworkTool.definition,
   postmanCollectionTool.definition,
   postmanToolgenTool.definition,
+  postmanNetworkSearchTool.definition,
 ];
 
 const functions = {
@@ -920,6 +928,49 @@ Entity system: ${entity.spec.system}
       return [{
         type: "text",
         text: `Error generating tool: ${err.message}`
+      }];
+    }
+  },
+  search_postman_network: async (params) => {
+    try {
+      const response = await search_postman_network(params);
+      if ('data' in response) {
+        const text = `Found ${response.meta.total} results:
+${response.data.map(result => `
+Name: ${result.name}
+Method: ${result.method}
+URL: ${result.url}
+Collection:
+  - ID: ${result.collection.id}
+  - Go URL: https://go.postman.co/collections/${result.collection.id}
+Workspace:
+  - ID: ${result.workspace.id}
+  - Go URL: https://go.postman.co/workspace/${result.workspace.id}
+Publisher: ${result.publisher.name}${result.publisher.isVerified ? ' (Verified)' : ''}
+Publisher Type: ${result.publisher.type}
+Publisher Profile: ${result.publisher.profilePicUrl}
+Links:
+  - Web View: ${result.links.web.href}
+  - API Endpoint: ${result.links.self.href}
+---`).join('\n')}
+
+${response.meta.nextCursor ? `Next Page Cursor: ${response.meta.nextCursor}` : 'No more pages available'}`;
+
+        return [{
+          type: "text",
+          text: truncateString(text)
+        }];
+      } else {
+        return [{
+          type: "text",
+          text: `Error searching network: ${response.detail}`
+        }];
+      }
+    } catch (err) {
+      console.error('Error searching network:', err);
+      return [{
+        type: "text",
+        text: `Error searching network: ${err.message}`
       }];
     }
   },

@@ -71,6 +71,11 @@ The embedded Multi-Channel Prompt (MCP) server enables LLMs like Claude to inter
 - supports multiple agent frameworks like Anthropic, OpenAI, Mistral, Gemini, Langchain, and Autogen
 - supports multiple languages like TypeScript and JavaScript
 
+### Postman Network Search
+- Search the Postman Network for API requests based on a query
+- Supports filtering by verified publishers
+- Supports pagination
+
 ## Setup
 
 1. Clone this repository
@@ -136,10 +141,17 @@ Find all API entities in Backstage that are related to our payment system and sh
 Get the details of our order management collection and list all its endpoints
 ```
 
-8. Generate TypeScript Code for API Integration:
+```
+8. Search Postman Network:
+```
+Can you show me the top 10 requests in postman's network dealing with Harry Potter including the URL to have a look at the collection?
+```
+
+9. Generate TypeScript Code for API Integration:
 ```
 Generate the TypeScript code required to integrate the API request for retrieving all Hogwarts students from the Harry Potter collection in Postman, using the Anthropic agent framework
 ```
+
 
 ## Error Handling
 
