@@ -2,18 +2,24 @@ import Anthropic from "@anthropic-ai/sdk";
 import { Buffer } from 'buffer';
 import process from 'process';
 import { z } from 'zod';
-import { 
-  postmanPrivateNetworkTool, 
-  getAllElementsAndFoldersZodSchema, 
+import {
+  postmanPrivateNetworkTool,
+  getAllElementsAndFoldersZodSchema,
   fetchPrivateAPINetworkElements,
   formatPrivateApiResponse
 } from './private-api-network';
-import { 
-  postmanCollectionTool, 
-  getCollectionZodSchema, 
+import {
+  postmanCollectionTool,
+  getCollectionZodSchema,
   fetchPostmanCollection,
   formatCollectionResponse
 } from './postman-collection';
+import {
+  postmanToolgenTool,
+  generateToolZodSchema,
+  generate_tool_from_postman_request,
+  GenerateToolParams,
+} from './postman-toolgen';
 
 type CreateSongParams = {
   prompt: string;
@@ -49,7 +55,7 @@ const createSongWithSunoAI = async ({
   wait_audio = true,
 }: CreateSongParams): Promise<CreateSongResponse> => {
   const sunoAIUrl = 'http://localhost:3000/api/custom_generate';
-  
+
   try {
     const response = await fetch(sunoAIUrl, {
       method: 'POST',
@@ -194,7 +200,7 @@ type GetContentParams = {
 const getConfluenceContent = async ({ type, title, expand }: GetContentParams) => {
   const baseUrl = `${process.env.CONFLUENCE_BASE_URL}/wiki/rest`;
   const url = new URL(`${baseUrl}/api/content`);
-  
+
   url.searchParams.append('type', type);
   url.searchParams.append('title', title);
   // Handle expand parameter - ensure it's an array and join with commas
@@ -317,6 +323,7 @@ const zodSchemas = {
 
   get_all_elements_and_folders: getAllElementsAndFoldersZodSchema,
   get_collection: getCollectionZodSchema,
+  generate_tool: generateToolZodSchema
 };
 
 // Add a utility function for truncating strings
@@ -333,7 +340,7 @@ const generateImage = async ({
   model = 'dall-e-3',
 }: ImageGenerationParams): Promise<ImageGenerationResponse> => {
   const baseUrl = 'https://api.openai.com/v1';
-  
+
   try {
     const response = await fetch(`${baseUrl}/images/generations`, {
       method: 'POST',
@@ -431,7 +438,7 @@ const getEntitiesByQuery = async ({ filter, fields, limit, orderField, cursor }:
   params.append('limit', limit.toString());
   if (orderField) params.append('orderField', orderField);
   if (cursor) params.append('cursor', cursor);
-  
+
   // Perform the fetch request
   const response = await fetch(`${url}?${params.toString()}`, {
     method: 'GET',
@@ -637,6 +644,7 @@ const tools: Anthropic.Tool[] = [
   backstageTool.definition,
   postmanPrivateNetworkTool.definition,
   postmanCollectionTool.definition,
+  postmanToolgenTool.definition,
 ];
 
 const functions = {
@@ -647,18 +655,18 @@ const functions = {
         console.error("[WEATHER] Error: No API key found in environment variables");
         throw new Error("Weather API key not found");
       }
-      
+
       const response = await fetch(
         `http://api.weatherapi.com/v1/current.json?key=${apiKey}&q=${input.location}&aqi=no`
       );
-      
+
       if (!response.ok) {
         console.error(`[WEATHER] API error: ${response.status} ${response.statusText}`);
         throw new Error(`Weather API error: ${response.status} ${response.statusText}`);
       }
-      
+
       const data = await response.json();
-      
+
       const result = `The current weather in ${data.location.name} is ${data.current.condition.text} with a temperature of ${data.current.temp_c}°C (${data.current.temp_f}°F).`;
       // return result wrapped like in the other functions
       return [{
@@ -674,7 +682,7 @@ const functions = {
     try {
       const response = await createSongWithSunoAI(input);
       console.log('-------- Suno AI response:', response);
-      
+
       return response.map((song) => ({
         type: "text",
         text: `Generated song "${song.title}":
@@ -701,7 +709,7 @@ Video URL: ${song.video_url}`
         title: `Generated Song`,
       });
       console.log('-------- ACE Data response:', response);
-      
+
       if (response.success && response.data.length > 0) {
         return response.data.map(song => ({
           type: "text",
@@ -714,7 +722,7 @@ Audio URL: ${song.audio_url}
 Video URL: ${song.video_url}`
         }));
       }
-      
+
       return [{
         type: "text",
         text: 'Failed to generate song'
@@ -737,7 +745,7 @@ Video URL: ${song.video_url}`
 
       const response = await getConfluenceContent(params);
       console.log('-------- Confluence response:', response);
-      
+
       if (response.results && response.results.length > 0) {
         const content = response.results[0];
         const text = `Title: ${content.title}
@@ -751,7 +759,7 @@ ${content.body?.storage?.value ? `\nContent:\n${content.body.storage.value}` : '
           text: truncateString(text)
         }];
       }
-      
+
       return [{
         type: "text",
         text: 'No content found'
@@ -768,7 +776,7 @@ ${content.body?.storage?.value ? `\nContent:\n${content.body.storage.value}` : '
     try {
       const response = await generateImage(input);
       console.log('-------- DALL-E response:', response);
-      
+
       if (response.data && response.data.length > 0) {
         return response.data.map(image => ({
           type: "text",
@@ -778,7 +786,7 @@ Revised prompt: ${image.revised_prompt}
 Image URL: ${image.url}`
         }));
       }
-      
+
       return [{
         type: "text",
         text: 'Failed to generate image'
@@ -795,7 +803,7 @@ Image URL: ${image.url}`
     try {
       const response = await getEntitiesByQuery(input);
       console.log('-------- Backstage response:', response);
-      
+
       if (response.items && response.items.length > 0) {
         // If there's only one item, include full details with definition
         if (response.items.length === 1) {
@@ -828,7 +836,7 @@ Entity annotations: ${Object.entries(entity.metadata.annotations).map(([key, val
         // For multiple items, combine all items into one string and truncate
         const text = `Total items found: ${response.totalItems}
 
-${response.items.map(entity => 
+${response.items.map(entity =>
           `Entity title: ${entity.metadata.title}
 Entity id: ${entity.metadata.name}
 Entity type: ${entity.spec.type}
@@ -846,7 +854,7 @@ Entity system: ${entity.spec.system}
           text: truncateString(text)
         }];
       }
-      
+
       return [{
         type: "text",
         text: 'No entities found'
@@ -874,11 +882,16 @@ Entity system: ${entity.spec.system}
   get_collection: async (params) => {
     try {
       const response = await fetchPostmanCollection(params);
+      const fullSpec = JSON.stringify(response, null, 2); // Convert full collection spec to string
       const formattedResponse = formatCollectionResponse(response);
-      return formattedResponse.map(item => ({
-        ...item,
-        text: truncateString(item.text)
-      }));
+
+      const text = formattedResponse.map(item => item.text).join('\n\n');
+      const fullText = `${text}\n\nFull Collection Spec:\n${fullSpec}`;
+
+      return [{
+        type: "text",
+        text: truncateString(fullText)
+      }];
     } catch (err) {
       console.error('Error getting collection:', err);
       return [{
@@ -886,7 +899,30 @@ Entity system: ${entity.spec.system}
         text: `Error getting collection: ${err.message}`
       }];
     }
-  }
+  },
+  generate_tool: async (params: GenerateToolParams) => {
+    try {
+      const response = await generate_tool_from_postman_request(params);
+
+      if ('data' in response) {
+        return [{
+          type: "text",
+          text: `Generated tool code:\n\n${response.data.text}`
+        }];
+      } else {
+        return [{
+          type: "text",
+          text: `Error generating tool: ${response.detail}`
+        }];
+      }
+    } catch (err) {
+      console.error('Error generating tool:', err);
+      return [{
+        type: "text",
+        text: `Error generating tool: ${err.message}`
+      }];
+    }
+  },
 };
 
 export { tools, functions, zodSchemas };

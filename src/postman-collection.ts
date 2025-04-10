@@ -92,35 +92,41 @@ export const getCollectionZodSchema = {
 // Helper function to recursively format collection items and their requests
 const formatCollectionItems = (items: CollectionItem[]): string => {
   return items.map(item => {
-    let result = `\n ${item.name}`;
+    let result = `\n${item.name}`;
     if (item.description) {
-      result += `\nDescription: ${item.description}`;
+      result += `\n  Description: ${item.description}`;
+    }
+    if (item.id) {
+      result += `\n  ID: ${item.id}`;
+    }
+    if (item.uid) {
+      result += `\n  Full UID: ${item.uid}`;
     }
     // Add request information
     if (item.request) {
-       result += '\nRequest:';
-    //   if (item.request.method) {
-    //     result += `\n  - Method: ${item.request.method}`;
-    //   }
-    if (item.request.url) {
-            const url = item.request.url;
-            if (url.raw) {
-            result += `\n  - URL: ${url.raw}`;
-            }
+      result += '\n  Request:';
+      if (item.request.method) {
+        result += `\n    - Method: ${item.request.method}`;
+      }
+      if (item.request.url) {
+        const url = item.request.url;
+        if (url.raw) {
+          result += `\n    - URL: ${url.raw}`;
         }
+      }
     }
     // Recursively format sub-items (folders and their requests)
     if (item.item && item.item.length > 0) {
-      result += formatCollectionItems(item.item);
+      result += `\n  Sub-items:${formatCollectionItems(item.item)}`;
     }
     return result;
-  }).join('\n---');
+  }).join('\n\n---');
 };
 
 // Helper function to get root level folders
 const formatRootLevelFolders = (items: CollectionItem[]): string => {
   if (!items || items.length === 0) return 'No top-level folders';
-  
+
   return items
     .filter(item => item.item) // Only get folders (items with sub-items)
     .map(folder => `- ${folder.name}${folder.description ? `\n  Description: ${folder.description}` : ''}`)
@@ -168,10 +174,6 @@ export const fetchPostmanCollection = async ({
 }: FunctionParams): Promise<CollectionResponse> => {
   const baseUrl = process.env.POSTMAN_BASE_URL || 'https://api.getpostman.com';
   const apiKey = process.env.POSTMAN_API_KEY || '';
-
-  if (!apiKey) {
-    throw new Error('POSTMAN_API_KEY not found in environment variables');
-  }
 
   try {
     // Construct the URL with query parameters

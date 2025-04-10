@@ -66,6 +66,11 @@ The embedded Multi-Channel Prompt (MCP) server enables LLMs like Claude to inter
 - View collection structure and organization
 - Support for both private and public collections
 
+### Postman Toolgen
+- Generate agent glue code for API requests in Postman collections
+- supports multiple agent frameworks like Anthropic, OpenAI, Mistral, Gemini, Langchain, and Autogen
+- supports multiple languages like TypeScript and JavaScript
+
 ## Setup
 
 1. Clone this repository
@@ -129,6 +134,11 @@ Find all API entities in Backstage that are related to our payment system and sh
 7. Collection Analysis:
 ```
 Get the details of our order management collection and list all its endpoints
+```
+
+8. Generate TypeScript Code for API Integration:
+```
+Generate the TypeScript code required to integrate the API request for retrieving all Hogwarts students from the Harry Potter collection in Postman, using the Anthropic agent framework
 ```
 
 ## Error Handling
