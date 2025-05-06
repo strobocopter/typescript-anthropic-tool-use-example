@@ -219,7 +219,7 @@ export const postmanCollectionTool = {
     name: 'get_collection',
     description: 'Get information about a Postman collection.',
     input_schema: {
-      type: 'object',
+      type: 'object' as 'object',
       properties: {
         collectionId: {
           type: 'string',

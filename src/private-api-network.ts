@@ -184,7 +184,7 @@ export const postmanPrivateNetworkTool = {
     name: 'get_all_elements_and_folders',
     description: 'Fetch all elements and folders from the Private API Network.',
     input_schema: {
-      type: 'object',
+      type: 'object' as 'object',
       properties: {
         since: {
           type: 'string',

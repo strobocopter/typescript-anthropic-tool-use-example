@@ -14,46 +14,6 @@ The embedded Multi-Channel Prompt (MCP) server enables LLMs like Claude to inter
 
 ## Available Organs (Tools) to the Agentic AI (Claude LLM)
 
-### Weather API
-- Get current weather conditions for any location
-- Requires `WEATHER_API_KEY` in environment variables
-- Returns temperature and weather description
-
-### Suno AI (Classic)
-- Generate songs with custom lyrics and style
-- Local API endpoint for song generation
-- Returns audio URL and generated lyrics
-
-### Suno AI (ACE)
-- Advanced song generation with video support
-- Requires `ACEDATA_API_KEY` in environment variables
-- Returns audio URL, video URL, and lyrics
-
-### DALL-E Image Generation
-- Generate images from text descriptions using DALL-E 3
-- Supports different image sizes (256x256, 512x512, 1024x1024)
-- DALL-E 3 specific features:
-  - High-quality image generation
-  - Revised prompts for better results
-  - Limited to 1 image per request
-  - Only supports 1024x1024 size
-- Requires `OPENAI_API_KEY` in environment variables
-
-### Confluence Content Management
-- Retrieve content from Confluence workspace
-- Supports various content expansions (body, attachments, comments, etc.)
-- Authentication using Basic Auth with:
-  - `CONFLUENCE_USERNAME`
-  - `CONFLUENCE_API_KEY`
-  - `CONFLUENCE_BASE_URL`
-
-### Backstage Catalog
-- Query and retrieve entities from Backstage
-- Filter entities by various criteria including tags, names, and metadata
-- Get detailed information about API specifications and documentation
-- Supports pagination and field selection
-- Requires `BACKSTAGE_BASE_URL` in environment variables
-
 ### Postman Private API Network
 - Browse and search through private API collections
 - Retrieve detailed API documentation and specifications
@@ -84,14 +44,6 @@ The embedded Multi-Channel Prompt (MCP) server enables LLMs like Claude to inter
 4. Copy `.env.example` to `.env`
 5. Add your API keys to `.env`:
 ```env
-ANTHROPIC_API_KEY=your_anthropic_key
-WEATHER_API_KEY=your_weather_key
-ACEDATA_API_KEY=your_acedata_key
-CONFLUENCE_USERNAME=your_confluence_email
-CONFLUENCE_API_KEY=your_confluence_api_key
-CONFLUENCE_BASE_URL=your_confluence_url
-OPENAI_API_KEY=your_openai_key
-BACKSTAGE_BASE_URL=your_backstage_url
 POSTMAN_API_KEY=your_postman_key
 ```
 

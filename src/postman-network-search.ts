@@ -127,7 +127,7 @@ export const postmanNetworkSearchTool = {
         name: 'search_postman_network',
         description: 'Search the Postman API Network for requests based on a query.',
         input_schema: {
-            type: "object",
+            type: 'object' as 'object',
             properties: {
                 elementType: {
                     type: 'string',

@@ -85,7 +85,7 @@ export const postmanToolgenTool = {
         name: 'generate_tool',
         description: 'Generates code for an AI agent tool using a collection and request from the Public API Network.',
         input_schema: {
-            type: 'object',
+            type: 'object' as 'object',
             properties: {
                 collectionId: {
                     type: 'string',
