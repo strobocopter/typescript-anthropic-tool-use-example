@@ -4,7 +4,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import express, { Express } from "express";
 dotenv.config();
-import { tools, functions, zodSchemas } from "./tools";
+import { tools } from "./tools";
 
 
 function exit() {
@@ -61,16 +61,12 @@ async function main() {
     
     // Register tools for this connection
     for (const tool of tools) {
-      const func = functions[tool.name];
-      const schema = zodSchemas[tool.name];
-      if (func) {
         mcpServer.tool(
-          tool.name,
-          tool.description || tool.name,
-          schema,
-          async (...args) => wrapToolResponse(await func(...args))
+          tool.anthropic.name,
+          tool.anthropic.description || tool.anthropic.name,
+          tool.zodSchema,
+          async (arg) => wrapToolResponse(await tool.function(arg))
         );
-      }
     }
     
     const transport = new SSEServerTransport("/message", res);

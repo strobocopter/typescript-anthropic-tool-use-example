@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ToolDefinition, truncateString } from './tools';
 
 type CollectionInfo = {
   _postman_id: string;
@@ -211,11 +212,33 @@ export const fetchPostmanCollection = async ({
     throw new Error('An error occurred while fetching the collection.');
   }
 };
+  
+const get_collection = async (params) => {
+  try {
+    const response = await fetchPostmanCollection(params);
+    const fullSpec = JSON.stringify(response, null, 2); // Convert full collection spec to string
+    const formattedResponse = formatCollectionResponse(response);
 
+    const text = formattedResponse.map(item => item.text).join('\n\n');
+    const fullText = `${text}\n\nFull Collection Spec:\n${fullSpec}`;
+
+    return [{
+      type: "text",
+      text: truncateString(fullText)
+    }];
+  } catch (err) {
+    console.error('Error getting collection:', err);
+    return [{
+      type: "text",
+      text: `Error getting collection: ${err.message}`
+    }];
+  }
+}
 // Tool definition for Anthropic
-export const postmanCollectionTool = {
-  function: fetchPostmanCollection,
-  definition: {
+export const postmanCollectionTool: ToolDefinition = {
+  function: get_collection,
+  zodSchema: getCollectionZodSchema,
+  anthropic: {
     name: 'get_collection',
     description: 'Get information about a Postman collection.',
     input_schema: {

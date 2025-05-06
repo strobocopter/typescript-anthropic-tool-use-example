@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import process from 'process';
+import { ToolDefinition } from './tools';
 
-export type GenerateToolParams = {
+type GenerateToolParams = {
     collectionId: string;
     requestId: string;
     config: {
@@ -23,7 +24,7 @@ type ErrorResponse = {
     detail: string;
 };
 
-export const generate_tool_from_postman_request = async ({
+const generate_tool_from_postman_request = async ({
     collectionId,
     requestId,
     config,
@@ -69,7 +70,7 @@ export const generate_tool_from_postman_request = async ({
 };
 
 // Add Zod schema for validation
-export const generateToolZodSchema = {
+const generateToolZodSchema = {
     collectionId: z.string().describe("The Public API Network collection's UID., example format: 24483689-91984890-1198-4573-8c9f-a66db81927de"),
     requestId: z.string().describe("The public request UID., example format: 41094746-ab513ced-796f-4b08-946e-bef868534d10"),
     config: z.object({
@@ -78,10 +79,35 @@ export const generateToolZodSchema = {
     }),
 };
 
+const generate_tool = async (params: GenerateToolParams) => {
+    try {
+      const response = await generate_tool_from_postman_request(params);
+
+      if ('data' in response) {
+        return [{
+          type: "text",
+          text: `Generated tool code:\n\n${response.data.text}`
+        }];
+      } else {
+        return [{
+          type: "text",
+          text: `Error generating tool: ${response.detail}`
+        }];
+      }
+    } catch (err) {
+      console.error('Error generating tool:', err);
+      return [{
+        type: "text",
+        text: `Error generating tool: ${err.message}`
+      }];
+    }
+  };
+
 // Export the tool definition
-export const postmanToolgenTool = {
-    function: generate_tool_from_postman_request,
-    definition: {
+export const postmanToolgenTool: ToolDefinition = {
+    function: generate_tool,
+    zodSchema: generateToolZodSchema,
+    anthropic: {
         name: 'generate_tool',
         description: 'Generates code for an AI agent tool using a collection and request from the Public API Network.',
         input_schema: {

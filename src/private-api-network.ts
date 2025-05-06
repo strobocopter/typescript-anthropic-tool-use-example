@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ToolDefinition } from './tools';
 
 // Types and Enums
 enum SortOptions {
@@ -136,7 +137,7 @@ ${elements}`
 };
 
 // Main function to execute the API call
-export const fetchPrivateAPINetworkElements = async (params: QueryParams): Promise<ApiResponse> => {
+const fetchPrivateAPINetworkElements = async (params: QueryParams): Promise<ApiResponse> => {
   const baseUrl = process.env.POSTMAN_BASE_URL || 'https://api.getpostman.com';
   const apiKey = process.env.POSTMAN_API_KEY || '';
 
@@ -177,10 +178,24 @@ export const fetchPrivateAPINetworkElements = async (params: QueryParams): Promi
   }
 };
 
+const get_all_elements_and_folders = async (params) => {
+  try {
+    const response = await fetchPrivateAPINetworkElements(params);
+    return formatPrivateApiResponse(response);
+  } catch (err) {
+    console.error('Error getting elements and folders:', err);
+    return [{
+      type: "text",
+      text: `Error getting elements and folders: ${err.message}`
+    }];
+  }
+}
+
 // Tool definition for Anthropic
-export const postmanPrivateNetworkTool = {
-  function: fetchPrivateAPINetworkElements,
-  definition: {
+export const postmanPrivateNetworkTool: ToolDefinition = {
+  function: get_all_elements_and_folders,
+  zodSchema: getAllElementsAndFoldersZodSchema,
+  anthropic: {
     name: 'get_all_elements_and_folders',
     description: 'Fetch all elements and folders from the Private API Network.',
     input_schema: {

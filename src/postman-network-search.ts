@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ToolDefinition, truncateString } from './tools';
 
 type Publisher = {
     type: 'team' | 'user';
@@ -56,7 +57,7 @@ type SearchParams = {
     nextCursor?: string;
 };
 
-export const searchNetworkZodSchema = {
+const searchNetworkZodSchema = {
     elementType: z.literal('requests').describe('The type of Postman element to search for. At this time, this only accepts the "requests" value.'),
     query: z.string().describe('The search query to find relevant requests.'),
     publisherIsVerified: z.boolean().optional().describe('Filter the search results to only return entities from publishers verified by Postman.'),
@@ -64,7 +65,7 @@ export const searchNetworkZodSchema = {
     nextCursor: z.string().optional().describe('The pagination cursor that points to the next record in the results set.')
 };
 
-export const search_postman_network = async ({
+const search_postman_network = async ({
     elementType,
     query,
     publisherIsVerified,
@@ -120,10 +121,56 @@ export const search_postman_network = async ({
     }
 };
 
+
+const search_postman_network_wrapper = async (params) => {
+    try {
+      const response = await search_postman_network(params);
+      if ('data' in response) {
+        const text = `Found ${response.meta.total} results:
+${response.data.map(result => `
+Name: ${result.name}
+Method: ${result.method}
+URL: ${result.url}
+Collection:
+  - ID: ${result.collection.id}
+  - Go URL: https://go.postman.co/collections/${result.collection.id}
+Workspace:
+  - ID: ${result.workspace.id}
+  - Go URL: https://go.postman.co/workspace/${result.workspace.id}
+Publisher: ${result.publisher.name}${result.publisher.isVerified ? ' (Verified)' : ''}
+Publisher Type: ${result.publisher.type}
+Publisher Profile: ${result.publisher.profilePicUrl}
+Links:
+  - Web View: ${result.links.web.href}
+  - API Endpoint: ${result.links.self.href}
+---`).join('\n')}
+
+${response.meta.nextCursor ? `Next Page Cursor: ${response.meta.nextCursor}` : 'No more pages available'}`;
+
+        return [{
+          type: "text",
+          text: truncateString(text)
+        }];
+      } else {
+        return [{
+          type: "text",
+          text: `Error searching network: ${response.detail}`
+        }];
+      }
+    } catch (err) {
+      console.error('Error searching network:', err);
+      return [{
+        type: "text",
+        text: `Error searching network: ${err.message}`
+      }];
+    }
+  }
+
 // Tool definition for Anthropic
-export const postmanNetworkSearchTool = {
-    function: search_postman_network,
-    definition: {
+export const postmanNetworkSearchTool: ToolDefinition = {
+    function: search_postman_network_wrapper,
+    zodSchema: searchNetworkZodSchema,
+    anthropic: {
         name: 'search_postman_network',
         description: 'Search the Postman API Network for requests based on a query.',
         input_schema: {
