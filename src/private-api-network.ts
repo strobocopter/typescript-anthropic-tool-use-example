@@ -99,7 +99,7 @@ const getPostmanViewUrl = (element: Element) => {
 };
 
 // Helper function for formatting response
-export const formatPrivateApiResponse = (response: ApiResponse) => {
+const formatPrivateApiResponse = (response: ApiResponse) => {
   const formatElement = (element: Element) => {
     return `## ${element.name}
 **Type**: ${element.type}

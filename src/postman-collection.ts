@@ -141,7 +141,7 @@ const getPostmanViewUrl = (collectionId: string) => {
 };
 
 // Helper function to format the API response
-export const formatCollectionResponse = (response: CollectionResponse) => {
+const formatCollectionResponse = (response: CollectionResponse) => {
   const { collection } = response;
   const text = `# Collection: ${collection.info.name}
 
@@ -168,7 +168,7 @@ ${collection.item ? formatCollectionItems(collection.item) : 'No items in collec
 };
 
 // Main function to execute the API call
-export const fetchPostmanCollection = async ({
+const fetchPostmanCollection = async ({
   collectionId,
   access_key,
   model,
@@ -212,7 +212,7 @@ export const fetchPostmanCollection = async ({
     throw new Error('An error occurred while fetching the collection.');
   }
 };
-  
+
 const get_collection = async (params) => {
   try {
     const response = await fetchPostmanCollection(params);

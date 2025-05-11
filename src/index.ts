@@ -15,7 +15,7 @@ function exit() {
 async function query() {
   const query = await input({ message: "Waiting for input..." });
   const trimmedQuery = query.trim();
-  
+
   if (["quit", "exit"].includes(trimmedQuery.toLowerCase())) {
     exit();
   }
@@ -40,7 +40,7 @@ async function main() {
   // Create Express app
   const app: Express = express();
   app.use(express.json());
-  
+
   // Only parse JSON for non-message endpoints
   app.use((req, res, next) => {
     if (req.path !== '/message') {
@@ -58,20 +58,20 @@ async function main() {
       name: "Postman Tools",
       version: "1.0.0"
     });
-    
+
     // Register tools for this connection
     for (const tool of tools) {
-        mcpServer.tool(
-          tool.anthropic.name,
-          tool.anthropic.description || tool.anthropic.name,
-          tool.zodSchema,
-          async (arg) => wrapToolResponse(await tool.function(arg))
-        );
+      mcpServer.tool(
+        tool.anthropic.name,
+        tool.anthropic.description || tool.anthropic.name,
+        tool.zodSchema,
+        async (arg) => wrapToolResponse(await tool.function(arg))
+      );
     }
-    
+
     const transport = new SSEServerTransport("/message", res);
     await mcpServer.connect(transport);
-    
+
     const sessionId = transport.sessionId;
     console.log(`[SSE] New connection established: ${sessionId}`);
     transports.set(sessionId, transport);
@@ -93,12 +93,12 @@ async function main() {
       res.status(400).json({ error: "No active transport" });
       return;
     }
-    
+
     try {
       // log incoming message
-      //console.log(`[SSE] Received message for ${sessionId}:`, req.body);
+      console.log(`[SSE] Received message for ${sessionId}:`, req.body);
       await transport.handlePostMessage(req, res, req.body);
-      
+
     } catch (error) {
       console.error(`[SSE] Error handling message for ${sessionId}:`, error);
       if (!res.headersSent) {
