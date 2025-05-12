@@ -1,10 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk";
 import process from 'process';
 
-import { postmanPrivateNetworkTool } from './private-api-network';
+import { postmanPrivateNetworkTool } from './postman-private-api-network';
 import { postmanCollectionTool } from './postman-collection';
 import { postmanToolgenTool } from './postman-toolgen';
 import { postmanNetworkSearchTool } from './postman-network-search';
+import { postmanWorkspaceCollectionsTool } from "./postman-workspace-collections";
 
 export interface ToolDefinition {
   anthropic: Anthropic.Tool;
@@ -20,8 +21,9 @@ export const truncateString = (str: string, maxLength?: number) => {
 };
 
 const tools: ToolDefinition[] = [
-  postmanCollectionTool,
   postmanPrivateNetworkTool,
+  postmanWorkspaceCollectionsTool,
+  postmanCollectionTool,
   postmanToolgenTool,
   postmanNetworkSearchTool,
 ];

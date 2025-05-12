@@ -20,7 +20,7 @@ enum ElementType {
 }
 
 // Define Zod schema for validation
-export const getAllElementsAndFoldersZodSchema = {
+export const getPrivateNetworkElementsZodSchema = {
   since: z.string().optional().describe('Return only results created since the given time, in ISO 8601 format.'),
   until: z.string().optional().describe('Return only results created until this given time, in ISO 8601 format.'),
   addedBy: z.number().optional().describe('Return only elements published by the given user ID.'),
@@ -178,7 +178,7 @@ const fetchPrivateAPINetworkElements = async (params: QueryParams): Promise<ApiR
   }
 };
 
-const get_all_elements_and_folders = async (params) => {
+const get_private_network_elements = async (params) => {
   try {
     const response = await fetchPrivateAPINetworkElements(params);
     return formatPrivateApiResponse(response);
@@ -193,10 +193,10 @@ const get_all_elements_and_folders = async (params) => {
 
 // Tool definition for Anthropic
 export const postmanPrivateNetworkTool: ToolDefinition = {
-  function: get_all_elements_and_folders,
-  zodSchema: getAllElementsAndFoldersZodSchema,
+  function: get_private_network_elements,
+  zodSchema: getPrivateNetworkElementsZodSchema,
   anthropic: {
-    name: 'get_all_elements_and_folders',
+    name: 'get_private_network_elements',
     description: 'Fetch all elements and folders from the Private API Network.',
     input_schema: {
       type: 'object' as 'object',
